@@ -1,5 +1,3 @@
-// COMPLETE REPLACEMENT FOR: app/app/components/TandemApp.js
-
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -33,7 +31,7 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
-  // Empty sample rides - no example data
+  // ✅ FIX 1: No example rides - clean slate
   const sampleRides = [];
 
   useEffect(() => {
@@ -123,6 +121,7 @@ const TandemApp = () => {
     setNewMessage('');
   };
 
+  // ✅ FIX 2: Real login - creates profile with email username
   const handleLogin = async () => {
     setLoading(true);
     setError('');
@@ -174,6 +173,7 @@ const TandemApp = () => {
     }
   };
 
+  // ✅ FIX 3: Real signup - creates profile with actual user details
   const handleSignup = async () => {
     setLoading(true);
     setError('');
@@ -700,11 +700,10 @@ const TandemApp = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Seats Available</label>
-                    <select 
-                      value={seats}
-                      onChange={(e) => setSeats(e.target.value)}
-                      className="w-full border border-gray-300 rounded
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+         <select 
+                     value={seats}
+                     onChange={(e) => setSeats(e.target.value)}
+                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                    >
                      <option value="1">1 seat</option>
                      <option value="2">2 seats</option>

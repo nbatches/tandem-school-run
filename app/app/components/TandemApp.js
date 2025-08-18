@@ -788,18 +788,25 @@ const TandemApp = () => {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
                     <input
-                      type="checkbox"
-                      id="photoConsent"
-                      checked={photoConsent}
-                      onChange={(e) => setPhotoConsent(e.target.checked)}
-                      className="mt-1 h-4 w-4 text-blue-600
-                        className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                   />
-                   <div className="flex-1">
-                     <label htmlFor="photoConsent" className="text-sm font-medium text-blue-900 cursor-pointer">
-                       📸 Photo Sharing Consent
-                     </label>
-                     <p className="text-xs text-blue-700 mt-1">
+                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+  <div className="flex items-start space-x-3">
+    <input
+      type="checkbox"
+      id="photoConsent"
+      checked={photoConsent}
+      onChange={(e) => setPhotoConsent(e.target.checked)}
+      className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+    />
+    <div className="flex-1">
+      <label htmlFor="photoConsent" className="text-sm font-medium text-blue-900 cursor-pointer">
+        📸 Photo Sharing Consent
+      </label>
+      <p className="text-xs text-blue-700 mt-1">
+        I consent to receiving photos of my child(ren) during school runs via this app.
+      </p>
+    </div>
+  </div>
+</div>
                        I consent to receiving photos of my child(ren) during school runs via this app.
                      </p>
                    </div>

@@ -1,3 +1,5 @@
+// COMPLETE REPLACEMENT FOR: app/app/components/TandemApp.js
+
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -31,32 +33,8 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
-  const sampleRides = [
-    {
-      id: 'sample1',
-      driver_name: 'Sarah Johnson',
-      postcode: 'NW6 2AB',
-      trip_type: 'pickup',
-      distance: '0.5',
-      date: '2024-08-19',
-      time: '08:15:00',
-      seats_available: 2,
-      year_groups: 'Y1-Y3',
-      driver_verified: true
-    },
-    {
-      id: 'sample2',
-      driver_name: 'Mike Parker',
-      postcode: 'NW10 5CD',
-      trip_type: 'both',
-      distance: 'meet',
-      date: '2024-08-19',
-      time: '08:00:00',
-      seats_available: 1,
-      year_groups: 'Reception-Y4',
-      driver_verified: true
-    }
-  ];
+  // Empty sample rides - no example data
+  const sampleRides = [];
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -150,22 +128,22 @@ const TandemApp = () => {
     setError('');
 
     try {
-      const demoUser = {
+      const loginUser = {
         id: Date.now().toString(),
         email: email,
         user_metadata: {
-          name: 'Demo User',
+          name: email.split('@')[0], // Use email username as name
           postcode: 'NW10 4EB',
-          children: 'Emma Y3, Jack Y1',
+          children: 'Your children',
           photoConsent: false,
           school: 'Maple Walk Prep'
         }
       };
       
       if (typeof window !== 'undefined') {
-        localStorage.setItem('tandem-user', JSON.stringify(demoUser));
+        localStorage.setItem('tandem-user', JSON.stringify(loginUser));
       }
-      setUser(demoUser);
+      setUser(loginUser);
       
       setEmail('');
       setPassword('');
@@ -187,7 +165,7 @@ const TandemApp = () => {
         }
       ]);
       
-      alert('Demo mode login successful!');
+      alert('Successfully logged in!');
     } catch (error) {
       console.error('Login error:', error);
       setError('Login failed. Please try again.');
@@ -201,7 +179,7 @@ const TandemApp = () => {
     setError('');
 
     try {
-      const demoUser = {
+      const newUser = {
         id: Date.now().toString(),
         email: email,
         user_metadata: {
@@ -214,9 +192,9 @@ const TandemApp = () => {
       };
       
       if (typeof window !== 'undefined') {
-        localStorage.setItem('tandem-user', JSON.stringify(demoUser));
+        localStorage.setItem('tandem-user', JSON.stringify(newUser));
       }
-      setUser(demoUser);
+      setUser(newUser);
       
       setEmail('');
       setPassword('');
@@ -225,7 +203,7 @@ const TandemApp = () => {
       setChildren('');
       setPhotoConsent(false);
       
-      alert('Demo account created!');
+      alert(`Account created for ${name}!`);
     } catch (error) {
       console.error('Signup error:', error);
       setError('Signup failed. Please try again.');
@@ -390,7 +368,7 @@ const TandemApp = () => {
           <div className="text-sm text-green-100 mb-3">Quick actions - tap to notify parents:</div>
           
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => sendQuickMessage('Emma safely picked up ✅')} className="bg-green-700 hover:bg-green-800 p-2 rounded text-sm font-medium">
+            <button onClick={() => sendQuickMessage('Child safely picked up ✅')} className="bg-green-700 hover:bg-green-800 p-2 rounded text-sm font-medium">
               ✅ Child Picked Up
             </button>
             <button onClick={() => sendQuickMessage('All children arrived safely at school 🏫')} className="bg-green-700 hover:bg-green-800 p-2 rounded text-sm font-medium">
@@ -513,8 +491,8 @@ const TandemApp = () => {
           </div>
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-            <p className="font-medium mb-1">Demo Mode:</p>
-            <p>Use any email/password to try the app!</p>
+            <p className="font-medium mb-1">Create Your Profile:</p>
+            <p>Sign up to create your custom profile with your name and details!</p>
           </div>
         </div>
       </div>
@@ -590,56 +568,64 @@ const TandemApp = () => {
               <div className="text-sm text-gray-600">{rides.length} rides available</div>
             </div>
 
-            {rides.map(ride => (
-              <div key={ride.id} className="bg-white rounded-lg p-4 mb-3 border">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Users className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{ride.driver_name}</div>
-                      <div className="flex items-center space-x-1 text-sm text-gray-600">
-                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span>4.8</span>
-                        {ride.driver_verified && <Shield className="w-3 h-3 text-green-600" />}
+            {rides.length === 0 ? (
+              <div className="text-center py-8">
+                <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No rides available yet</p>
+                <p className="text-sm text-gray-500">Check back later or offer a ride!</p>
+              </div>
+            ) : (
+              rides.map(ride => (
+                <div key={ride.id} className="bg-white rounded-lg p-4 mb-3 border">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Users className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="font-medium">{ride.driver_name}</div>
+                        <div className="flex items-center space-x-1 text-sm text-gray-600">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span>4.8</span>
+                          {ride.driver_verified && <Shield className="w-3 h-3 text-green-600" />}
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500">{ride.seats_available} seats</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500">{ride.seats_available} seats</div>
-                  </div>
-                </div>
 
-                <div className="space-y-1 text-sm text-gray-600 mb-3">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-3 h-3" />
-                    <span>{ride.postcode} area → Maple Walk Prep</span>
+                  <div className="space-y-1 text-sm text-gray-600 mb-3">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-3 h-3" />
+                      <span>{ride.postcode} area → Maple Walk Prep</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-3 h-3" />
+                      <span>{ride.time} • {ride.trip_type}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-3 h-3" />
+                      <span>{ride.date}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Clock className="w-3 h-3" />
-                    <span>{ride.time} • {ride.trip_type}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-3 h-3" />
-                    <span>{ride.date}</span>
-                  </div>
-                </div>
 
-                <div className="text-xs text-blue-600 mb-3">
-                  {ride.year_groups} welcome
-                </div>
+                  <div className="text-xs text-blue-600 mb-3">
+                    {ride.year_groups} welcome
+                  </div>
 
-                <div className="flex space-x-2">
-                  <button onClick={() => requestRide(ride.id)} className="bg-blue-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-700">
-                    Request Ride
-                  </button>
-                  <button onClick={() => setShowMessaging(true)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <MessageCircle className="w-4 h-4" />
-                  </button>
+                  <div className="flex space-x-2">
+                    <button onClick={() => requestRide(ride.id)} className="bg-blue-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-700">
+                      Request Ride
+                    </button>
+                    <button onClick={() => setShowMessaging(true)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                      <MessageCircle className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
@@ -701,23 +687,24 @@ const TandemApp = () => {
                     />
                   </div>
                   <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                   <input 
-                     type="time" 
-                     value={time}
-                     onChange={(e) => setTime(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2" 
-                   />
-                 </div>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Seats Available</label>
-                   <select 
-                     value={seats}
-                     onChange={(e) => setSeats(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                    <input 
+                      type="time" 
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2" 
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Seats Available</label>
+                    <select 
+                      value={seats}
+                      onChange={(e) => setSeats(e.target.value)}
+                      className="w-full border border-gray-300 rounded
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
                    >
                      <option value="1">1 seat</option>
                      <option value="2">2 seats</option>
@@ -801,7 +788,10 @@ const TandemApp = () => {
                    </div>
                    
                    <div className="flex space-x-2 mt-3">
-                     <button className="flex-1 bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700">
+                     <button 
+                       onClick={() => alert('Feature coming soon! Ride requests will appear here.')}
+                       className="flex-1 bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700"
+                     >
                        View Requests
                      </button>
                      <button 

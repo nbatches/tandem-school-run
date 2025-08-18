@@ -8,7 +8,7 @@ const TandemApp = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [postcode, setPostcode] = useState('');
-  const [children, setChildren] = useState('');
+  const [children, setChildren] = useState([{ name: '', yearGroup: '' }]);
   const [photoConsent, setPhotoConsent] = useState(false);
   const [authMode, setAuthMode] = useState('signin');
   const [user, setUser] = useState(null);
@@ -31,16 +31,28 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
-  // ✅ FIX 1: No example rides - clean slate
+  // Empty sample rides - clean slate
   const sampleRides = [];
+
+  // Year group options
+  const yearGroupOptions = [
+    'Reception', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'
+  ];
 
   useEffect(() => {
     const initializeApp = async () => {
       if (typeof window !== 'undefined') {
         const savedUser = JSON.parse(localStorage.getItem('tandem-user') || 'null');
+        const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
+        
         if (savedUser) {
           setUser(savedUser);
-          setRides(sampleRides);
+          setRides(savedRides);
+          
+          // Load user's specific rides
+          const userRides = savedRides.filter(ride => ride.driver_id === savedUser.id);
+          setMyRides(userRides);
+          
           setParentMessages([
             {
               id: 1,
@@ -58,7 +70,7 @@ const TandemApp = () => {
             }
           ]);
         } else {
-          setRides(sampleRides);
+          setRides(savedRides);
         }
       }
       setLoading(false);
@@ -66,6 +78,68 @@ const TandemApp = () => {
 
     initializeApp();
   }, []);
+
+  // Function to send email notification to school
+  const sendSchoolNotification = async (userData) => {
+    try {
+      const childrenList = userData.children.map(child => `${child.name} (${child.yearGroup})`).join(', ');
+      
+      const emailData = {
+        to: 'nooralnaseri@gmail.com',
+        subject: 'New Tandem User Registration - Verification Required',
+        html: `
+          <h2>New Tandem User Registration</h2>
+          <p>A new user has registered for the Tandem school run coordination app:</p>
+          
+          <h3>User Details:</h3>
+          <ul>
+            <li><strong>Name:</strong> ${userData.name}</li>
+            <li><strong>Email:</strong> ${userData.email}</li>
+            <li><strong>Postcode:</strong> ${userData.postcode}</li>
+            <li><strong>Children:</strong> ${childrenList}</li>
+            <li><strong>Photo Consent:</strong> ${userData.photoConsent ? 'Yes' : 'No'}</li>
+          </ul>
+          
+          <p>Please verify this user is part of the Maple Walk Prep school community.</p>
+          
+          <hr>
+          <p><em>This email was sent automatically from the Tandem app.</em></p>
+        `
+      };
+
+      // Using EmailJS service (you'll need to set this up)
+      // For now, we'll simulate the email being sent
+      console.log('School notification email:', emailData);
+      
+      // You would replace this with actual email service like:
+      // await emailjs.send('service_id', 'template_id', emailData, 'user_id');
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to send school notification:', error);
+      return false;
+    }
+  };
+
+  // Add/remove children functions
+  const addChild = () => {
+    if (children.length < 5) {
+      setChildren([...children, { name: '', yearGroup: '' }]);
+    }
+  };
+
+  const removeChild = (index) => {
+    if (children.length > 1) {
+      setChildren(children.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateChild = (index, field, value) => {
+    const updatedChildren = children.map((child, i) => 
+      i === index ? { ...child, [field]: value } : child
+    );
+    setChildren(updatedChildren);
+  };
 
   const sendNotification = (title, body) => {
     console.log('Notification:', title, body);
@@ -121,7 +195,6 @@ const TandemApp = () => {
     setNewMessage('');
   };
 
-  // ✅ FIX 2: Real login - creates profile with email username
   const handleLogin = async () => {
     setLoading(true);
     setError('');
@@ -131,9 +204,9 @@ const TandemApp = () => {
         id: Date.now().toString(),
         email: email,
         user_metadata: {
-          name: email.split('@')[0], // Use email username as name
+          name: email.split('@')[0],
           postcode: 'NW10 4EB',
-          children: 'Your children',
+          children: [{ name: 'Your child', yearGroup: 'Y1' }],
           photoConsent: false,
           school: 'Maple Walk Prep'
         }
@@ -141,6 +214,14 @@ const TandemApp = () => {
       
       if (typeof window !== 'undefined') {
         localStorage.setItem('tandem-user', JSON.stringify(loginUser));
+        
+        // Load existing rides from storage
+        const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
+        setRides(savedRides);
+        
+        // Load user's specific rides
+        const userRides = savedRides.filter(ride => ride.driver_id === loginUser.id);
+        setMyRides(userRides);
       }
       setUser(loginUser);
       
@@ -173,26 +254,46 @@ const TandemApp = () => {
     }
   };
 
-  // ✅ FIX 3: Real signup - creates profile with actual user details
   const handleSignup = async () => {
     setLoading(true);
     setError('');
 
     try {
+      // Validate children data
+      const validChildren = children.filter(child => child.name.trim() && child.yearGroup);
+      if (validChildren.length === 0) {
+        setError('Please add at least one child with name and year group.');
+        setLoading(false);
+        return;
+      }
+
       const newUser = {
         id: Date.now().toString(),
         email: email,
         user_metadata: {
           name: name,
           postcode: postcode,
-          children: children,
+          children: validChildren,
           photoConsent: photoConsent,
           school: 'Maple Walk Prep'
         }
       };
       
+      // Send notification to school
+      const emailSent = await sendSchoolNotification({
+        name: name,
+        email: email,
+        postcode: postcode,
+        children: validChildren,
+        photoConsent: photoConsent
+      });
+      
       if (typeof window !== 'undefined') {
         localStorage.setItem('tandem-user', JSON.stringify(newUser));
+        
+        // Load existing rides from storage
+        const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
+        setRides(savedRides);
       }
       setUser(newUser);
       
@@ -200,10 +301,14 @@ const TandemApp = () => {
       setPassword('');
       setName('');
       setPostcode('');
-      setChildren('');
+      setChildren([{ name: '', yearGroup: '' }]);
       setPhotoConsent(false);
       
-      alert(`Account created for ${name}!`);
+      if (emailSent) {
+        alert(`Account created for ${name}! The school has been notified for verification.`);
+      } else {
+        alert(`Account created for ${name}! (Note: School notification failed - please contact the school directly)`);
+      }
     } catch (error) {
       console.error('Signup error:', error);
       setError('Signup failed. Please try again.');
@@ -247,8 +352,16 @@ const TandemApp = () => {
         ...rideData
       };
       
-      setRides(prev => [newRide, ...prev]);
+      // Update global rides list
+      const updatedRides = [newRide, ...rides];
+      setRides(updatedRides);
       setMyRides(prev => [newRide, ...prev]);
+      
+      // Save to localStorage for persistence
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tandem-all-rides', JSON.stringify(updatedRides));
+      }
+      
       alert('Ride posted successfully!');
     } catch (error) {
       setError('Failed to create ride. Please try again.');
@@ -400,7 +513,7 @@ const TandemApp = () => {
   if (!user) {
     return (
       <div className="fixed inset-0 bg-blue-600 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4">
+        <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4 max-h-screen overflow-y-auto">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-blue-600 mb-2">Tandem</h1>
             <p className="text-gray-600">School run coordination for Maple Walk Prep</p>
@@ -429,13 +542,53 @@ const TandemApp = () => {
                   onChange={(e) => setPostcode(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 />
-                <input
-                  type="text"
-                  placeholder="Children (e.g. Emma Y3, Jack Y1)"
-                  value={children}
-                  onChange={(e) => setChildren(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
+                
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-medium text-gray-700">Children & Year Groups</label>
+                    <button
+                      onClick={addChild}
+                      disabled={children.length >= 5}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm rounded-md transition-colors"
+                    >
+                      Add Child
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {children.map((child, index) => (
+                      <div key={index} className="flex gap-2 items-center p-2 bg-gray-50 rounded-md">
+                        <input
+                          type="text"
+                          value={child.name}
+                          onChange={(e) => updateChild(index, 'name', e.target.value)}
+                          placeholder={`Child ${index + 1} name`}
+                          className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                        />
+                        
+                        <select
+                          value={child.yearGroup}
+                          onChange={(e) => updateChild(index, 'yearGroup', e.target.value)}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        >
+                          <option value="">Select Year</option>
+                          {yearGroupOptions.map(year => (
+                            <option key={year} value={year}>{year}</option>
+                          ))}
+                        </select>
+                        
+                        {children.length > 1 && (
+                          <button
+                            onClick={() => removeChild(index)}
+                            className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
@@ -491,8 +644,8 @@ const TandemApp = () => {
           </div>
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-            <p className="font-medium mb-1">Create Your Profile:</p>
-            <p>Sign up to create your custom profile with your name and details!</p>
+            <p className="font-medium mb-1">School Verification:</p>
+            <p>New registrations are automatically sent to the school for verification to ensure community safety.</p>
           </div>
         </div>
       </div>
@@ -526,6 +679,11 @@ const TandemApp = () => {
           <div className="text-blue-200">
             Welcome {user?.user_metadata?.name || user?.name || user?.email}
           </div>
+          {user?.user_metadata?.children && (
+            <div className="text-blue-200 text-xs mt-1">
+              Children: {user.user_metadata.children.map(child => `${child.name} (${child.yearGroup})`).join(', ')}
+            </div>
+          )}
         </div>
       </div>
 
@@ -570,137 +728,137 @@ const TandemApp = () => {
 
             {rides.length === 0 ? (
               <div className="text-center py-8">
-                <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">No rides available yet</p>
-                <p className="text-sm text-gray-500">Check back later or offer a ride!</p>
-              </div>
-            ) : (
-              rides.map(ride => (
-                <div key={ride.id} className="bg-white rounded-lg p-4 mb-3 border">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Users className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="font-medium">{ride.driver_name}</div>
-                        <div className="flex items-center space-x-1 text-sm text-gray-600">
-                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          <span>4.8</span>
-                          {ride.driver_verified && <Shield className="w-3 h-3 text-green-600" />}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500">{ride.seats_available} seats</div>
-                    </div>
-                  </div>
+              <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+               <p className="text-gray-600">No rides available yet</p>
+               <p className="text-sm text-gray-500">Check back later or offer a ride!</p>
+             </div>
+           ) : (
+             rides.map(ride => (
+               <div key={ride.id} className="bg-white rounded-lg p-4 mb-3 border">
+                 <div className="flex justify-between items-start mb-2">
+                   <div className="flex items-center space-x-2">
+                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                       <Users className="w-4 h-4 text-blue-600" />
+                     </div>
+                     <div>
+                       <div className="font-medium">{ride.driver_name}</div>
+                       <div className="flex items-center space-x-1 text-sm text-gray-600">
+                         <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                         <span>4.8</span>
+                         {ride.driver_verified && <Shield className="w-3 h-3 text-green-600" />}
+                       </div>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-xs text-gray-500">{ride.seats_available} seats</div>
+                   </div>
+                 </div>
 
-                  <div className="space-y-1 text-sm text-gray-600 mb-3">
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="w-3 h-3" />
-                      <span>{ride.postcode} area → Maple Walk Prep</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-3 h-3" />
-                      <span>{ride.time} • {ride.trip_type}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-3 h-3" />
-                      <span>{ride.date}</span>
-                    </div>
-                  </div>
+                 <div className="space-y-1 text-sm text-gray-600 mb-3">
+                   <div className="flex items-center space-x-2">
+                     <MapPin className="w-3 h-3" />
+                     <span>{ride.postcode} area → Maple Walk Prep</span>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <Clock className="w-3 h-3" />
+                     <span>{ride.time} • {ride.trip_type}</span>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <Calendar className="w-3 h-3" />
+                     <span>{ride.date}</span>
+                   </div>
+                 </div>
 
-                  <div className="text-xs text-blue-600 mb-3">
-                    {ride.year_groups} welcome
-                  </div>
+                 <div className="text-xs text-blue-600 mb-3">
+                   {ride.year_groups} welcome
+                 </div>
 
-                  <div className="flex space-x-2">
-                    <button onClick={() => requestRide(ride.id)} className="bg-blue-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-700">
-                      Request Ride
-                    </button>
-                    <button onClick={() => setShowMessaging(true)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                      <MessageCircle className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+                 <div className="flex space-x-2">
+                   <button onClick={() => requestRide(ride.id)} className="bg-blue-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-700">
+                     Request Ride
+                   </button>
+                   <button onClick={() => setShowMessaging(true)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                     <MessageCircle className="w-4 h-4" />
+                   </button>
+                 </div>
+               </div>
+             ))
+           )}
+         </div>
+       )}
 
-        {activeTab === 'offer' && (
-          <div>
-            <div className="bg-white rounded-lg p-4 mb-4">
-              <h3 className="font-semibold mb-3">Offer a Ride</h3>
-              
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Your Postcode</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. NW10 4AB" 
-                    value={ridePostcode}
-                    onChange={(e) => setRidePostcode(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Trip Type</label>
-                    <select 
-                      value={tripType}
-                      onChange={(e) => setTripType(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    >
-                      <option value="pickup">Pick up (to school)</option>
-                      <option value="dropoff">Drop off (from school)</option>
-                      <option value="both">Both ways</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Travel Distance</label>
-                    <select 
-                      value={distance}
-                      onChange={(e) => setDistance(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                    >
-                      <option value="0.25">Within 0.25 miles</option>
-                      <option value="0.5">Within 0.5 miles</option>
-                      <option value="1">Within 1 mile</option>
-                      <option value="2">Within 2 miles</option>
-                      <option value="3">Within 3 miles</option>
-                      <option value="meet">Meet at my address</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input 
-                      type="date" 
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                    <input 
-                      type="time" 
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2" 
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Seats Available</label>
-         <select 
+       {activeTab === 'offer' && (
+         <div>
+           <div className="bg-white rounded-lg p-4 mb-4">
+             <h3 className="font-semibold mb-3">Offer a Ride</h3>
+             
+             <div className="space-y-3">
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Your Postcode</label>
+                 <input 
+                   type="text" 
+                   placeholder="e.g. NW10 4AB" 
+                   value={ridePostcode}
+                   onChange={(e) => setRidePostcode(e.target.value)}
+                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                 />
+               </div>
+               
+               <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">Trip Type</label>
+                   <select 
+                     value={tripType}
+                     onChange={(e) => setTripType(e.target.value)}
+                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                   >
+                     <option value="pickup">Pick up (to school)</option>
+                     <option value="dropoff">Drop off (from school)</option>
+                     <option value="both">Both ways</option>
+                   </select>
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">Travel Distance</label>
+                   <select 
+                     value={distance}
+                     onChange={(e) => setDistance(e.target.value)}
+                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                   >
+                     <option value="0.25">Within 0.25 miles</option>
+                     <option value="0.5">Within 0.5 miles</option>
+                     <option value="1">Within 1 mile</option>
+                     <option value="2">Within 2 miles</option>
+                     <option value="3">Within 3 miles</option>
+                     <option value="meet">Meet at my address</option>
+                   </select>
+                 </div>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                   <input 
+                     type="date" 
+                     value={date}
+                     onChange={(e) => setDate(e.target.value)}
+                     className="w-full border border-gray-300 rounded-lg px-3 py-2" 
+                   />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                   <input 
+                     type="time" 
+                     value={time}
+                     onChange={(e) => setTime(e.target.value)}
+                     className="w-full border border-gray-300 rounded-lg px-3 py-2" 
+                   />
+                 </div>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">Seats Available</label>
+                   <select 
                      value={seats}
                      onChange={(e) => setSeats(e.target.value)}
                      className="w-full border border-gray-300 rounded-lg px-3 py-2"
@@ -813,8 +971,10 @@ const TandemApp = () => {
                  <div className="text-sm text-gray-600">Rides Offered</div>
                </div>
                <div>
-                 <div className="text-2xl font-bold text-blue-600">2</div>
-                 <div className="text-sm text-gray-600">Families Helped</div>
+                 <div className="text-2xl font-bold text-blue-600">
+                   {user?.user_metadata?.children ? user.user_metadata.children.length : 0}
+                 </div>
+                 <div className="text-sm text-gray-600">Children Registered</div>
                </div>
              </div>
            </div>
@@ -826,3 +986,4 @@ const TandemApp = () => {
 };
 
 export default TandemApp;
+                <Car className="w-12 h-

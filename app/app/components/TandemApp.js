@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Car, Clock, MapPin, Users, Star, Calendar, MessageCircle, Shield, LogOut, Send, X, Camera } from 'lucide-react';
+import { Car, Clock, MapPin, Users, Calendar, MessageCircle, Shield, LogOut, Send, X, Camera } from 'lucide-react';
 
 const TandemApp = () => {
   const [email, setEmail] = useState('');
@@ -31,7 +31,6 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
-  // Year group options
   const yearGroupOptions = [
     'Reception', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'
   ];
@@ -46,7 +45,6 @@ const TandemApp = () => {
           setUser(savedUser);
           setRides(savedRides);
           
-          // Load user's specific rides
           const userRides = savedRides.filter(ride => ride.driver_id === savedUser.id);
           setMyRides(userRides);
           
@@ -76,7 +74,6 @@ const TandemApp = () => {
     initializeApp();
   }, []);
 
-  // Function to send email notification to school
   const sendSchoolNotification = async (userData) => {
     try {
       const childrenList = userData.children.map(child => `${child.name} (${child.yearGroup})`).join(', ');
@@ -112,7 +109,6 @@ const TandemApp = () => {
     }
   };
 
-  // Add/remove children functions
   const addChild = () => {
     if (children.length < 5) {
       setChildren([...children, { name: '', yearGroup: '' }]);
@@ -186,19 +182,16 @@ const TandemApp = () => {
     setNewMessage('');
   };
 
-  // FIXED LOGIN WITH PROFILE PERSISTENCE
   const handleLogin = async () => {
     setLoading(true);
     setError('');
 
     try {
       if (typeof window !== 'undefined') {
-        // Check if user already exists in stored profiles
         const allProfiles = JSON.parse(localStorage.getItem('tandem-profiles') || '{}');
         let loginUser = allProfiles[email];
         
         if (!loginUser) {
-          // Create new user if doesn't exist
           loginUser = {
             id: Date.now().toString(),
             email: email,
@@ -211,20 +204,16 @@ const TandemApp = () => {
             }
           };
           
-          // Save new profile
           allProfiles[email] = loginUser;
           localStorage.setItem('tandem-profiles', JSON.stringify(allProfiles));
         }
         
-        // Set current user
         localStorage.setItem('tandem-user', JSON.stringify(loginUser));
         setUser(loginUser);
         
-        // Load existing rides from storage
         const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
         setRides(savedRides);
         
-        // Load user's specific rides
         const userRides = savedRides.filter(ride => ride.driver_id === loginUser.id);
         setMyRides(userRides);
       }
@@ -258,13 +247,11 @@ const TandemApp = () => {
     }
   };
 
-  // FIXED SIGNUP WITH PROFILE PERSISTENCE
   const handleSignup = async () => {
     setLoading(true);
     setError('');
 
     try {
-      // Validate children data
       const validChildren = children.filter(child => child.name.trim() && child.yearGroup);
       if (validChildren.length === 0) {
         setError('Please add at least one child with name and year group.');
@@ -273,7 +260,6 @@ const TandemApp = () => {
       }
 
       if (typeof window !== 'undefined') {
-        // Check if user already exists
         const allProfiles = JSON.parse(localStorage.getItem('tandem-profiles') || '{}');
         
         if (allProfiles[email]) {
@@ -294,19 +280,15 @@ const TandemApp = () => {
           }
         };
         
-        // Save to profiles database
         allProfiles[email] = newUser;
         localStorage.setItem('tandem-profiles', JSON.stringify(allProfiles));
         
-        // Set current user
         localStorage.setItem('tandem-user', JSON.stringify(newUser));
         setUser(newUser);
         
-        // Load existing rides from storage
         const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
         setRides(savedRides);
         
-        // Send notification to school
         const emailSent = await sendSchoolNotification({
           name: name,
           email: email,
@@ -371,12 +353,10 @@ const TandemApp = () => {
         ...rideData
       };
       
-      // Update global rides list
       const updatedRides = [newRide, ...rides];
       setRides(updatedRides);
       setMyRides(prev => [newRide, ...prev]);
       
-      // Save to localStorage for persistence
       if (typeof window !== 'undefined') {
         localStorage.setItem('tandem-all-rides', JSON.stringify(updatedRides));
       }
@@ -733,3 +713,20 @@ const TandemApp = () => {
               )}
               <button onClick={() => setShowMessaging(true)} className="bg-green-600 text-white px-3 py-1 rounded text-sm">
                 View Messages
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {activeTab === 'find' && (
+          <div>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Available Rides</h3>
+              <div className="text-sm text-gray-600">{rides.length} rides available</div>
+            </div>
+
+            {rides.length === 0 ? (
+              <div className="text-center py-8">
+                <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No rides available yet</p>
+                <p className="text-sm text-gray-500">Check back

@@ -1,4 +1,4 @@
-import './components/globals.css'
+import './app/components/globals.css'
 
 export const metadata = {
   title: 'Tandem - School Run Coordination',
@@ -15,4 +15,3 @@ export default function RootLayout({ children }) {
     </html>
   )
 }
-

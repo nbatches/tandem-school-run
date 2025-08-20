@@ -31,9 +31,6 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
-  // Empty sample rides - clean slate
-  const sampleRides = [];
-
   // Year group options
   const yearGroupOptions = [
     'Reception', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'
@@ -107,13 +104,7 @@ const TandemApp = () => {
         `
       };
 
-      // Using EmailJS service (you'll need to set this up)
-      // For now, we'll simulate the email being sent
       console.log('School notification email:', emailData);
-      
-      // You would replace this with actual email service like:
-      // await emailjs.send('service_id', 'template_id', emailData, 'user_id');
-      
       return true;
     } catch (error) {
       console.error('Failed to send school notification:', error);
@@ -195,25 +186,39 @@ const TandemApp = () => {
     setNewMessage('');
   };
 
+  // FIXED LOGIN WITH PROFILE PERSISTENCE
   const handleLogin = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const loginUser = {
-        id: Date.now().toString(),
-        email: email,
-        user_metadata: {
-          name: email.split('@')[0],
-          postcode: 'NW10 4EB',
-          children: [{ name: 'Your child', yearGroup: 'Y1' }],
-          photoConsent: false,
-          school: 'Maple Walk Prep'
-        }
-      };
-      
       if (typeof window !== 'undefined') {
+        // Check if user already exists in stored profiles
+        const allProfiles = JSON.parse(localStorage.getItem('tandem-profiles') || '{}');
+        let loginUser = allProfiles[email];
+        
+        if (!loginUser) {
+          // Create new user if doesn't exist
+          loginUser = {
+            id: Date.now().toString(),
+            email: email,
+            user_metadata: {
+              name: email.split('@')[0],
+              postcode: 'NW10 4EB',
+              children: [{ name: 'Your child', yearGroup: 'Y1' }],
+              photoConsent: false,
+              school: 'Maple Walk Prep'
+            }
+          };
+          
+          // Save new profile
+          allProfiles[email] = loginUser;
+          localStorage.setItem('tandem-profiles', JSON.stringify(allProfiles));
+        }
+        
+        // Set current user
         localStorage.setItem('tandem-user', JSON.stringify(loginUser));
+        setUser(loginUser);
         
         // Load existing rides from storage
         const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
@@ -223,7 +228,6 @@ const TandemApp = () => {
         const userRides = savedRides.filter(ride => ride.driver_id === loginUser.id);
         setMyRides(userRides);
       }
-      setUser(loginUser);
       
       setEmail('');
       setPassword('');
@@ -254,6 +258,7 @@ const TandemApp = () => {
     }
   };
 
+  // FIXED SIGNUP WITH PROFILE PERSISTENCE
   const handleSignup = async () => {
     setLoading(true);
     setError('');
@@ -267,47 +272,61 @@ const TandemApp = () => {
         return;
       }
 
-      const newUser = {
-        id: Date.now().toString(),
-        email: email,
-        user_metadata: {
-          name: name,
-          postcode: postcode,
-          children: validChildren,
-          photoConsent: photoConsent,
-          school: 'Maple Walk Prep'
-        }
-      };
-      
-      // Send notification to school
-      const emailSent = await sendSchoolNotification({
-        name: name,
-        email: email,
-        postcode: postcode,
-        children: validChildren,
-        photoConsent: photoConsent
-      });
-      
       if (typeof window !== 'undefined') {
+        // Check if user already exists
+        const allProfiles = JSON.parse(localStorage.getItem('tandem-profiles') || '{}');
+        
+        if (allProfiles[email]) {
+          setError('An account with this email already exists. Please sign in instead.');
+          setLoading(false);
+          return;
+        }
+
+        const newUser = {
+          id: Date.now().toString(),
+          email: email,
+          user_metadata: {
+            name: name,
+            postcode: postcode,
+            children: validChildren,
+            photoConsent: photoConsent,
+            school: 'Maple Walk Prep'
+          }
+        };
+        
+        // Save to profiles database
+        allProfiles[email] = newUser;
+        localStorage.setItem('tandem-profiles', JSON.stringify(allProfiles));
+        
+        // Set current user
         localStorage.setItem('tandem-user', JSON.stringify(newUser));
+        setUser(newUser);
         
         // Load existing rides from storage
         const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
         setRides(savedRides);
-      }
-      setUser(newUser);
-      
-      setEmail('');
-      setPassword('');
-      setName('');
-      setPostcode('');
-      setChildren([{ name: '', yearGroup: '' }]);
-      setPhotoConsent(false);
-      
-      if (emailSent) {
-        alert(`Account created for ${name}! The school has been notified for verification.`);
-      } else {
-        alert(`Account created for ${name}! (Note: School notification failed - please contact the school directly)`);
+        
+        // Send notification to school
+        const emailSent = await sendSchoolNotification({
+          name: name,
+          email: email,
+          postcode: postcode,
+          children: validChildren,
+          photoConsent: photoConsent
+        });
+        
+        setEmail('');
+        setPassword('');
+        setName('');
+        setPostcode('');
+        setChildren([{ name: '', yearGroup: '' }]);
+        setPhotoConsent(false);
+        
+        if (emailSent) {
+          alert(`Account created for ${name}! The school has been notified for verification.`);
+        } else {
+          alert(`Account created for ${name}! (Note: School notification failed - please contact the school directly)`);
+        }
       }
     } catch (error) {
       console.error('Signup error:', error);
@@ -714,276 +733,3 @@ const TandemApp = () => {
               )}
               <button onClick={() => setShowMessaging(true)} className="bg-green-600 text-white px-3 py-1 rounded text-sm">
                 View Messages
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {activeTab === 'find' && (
-          <div>
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2">Available Rides</h3>
-              <div className="text-sm text-gray-600">{rides.length} rides available</div>
-            </div>
-
-            {rides.length === 0 ? (
-              <div className="text-center py-8">
-              <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-               <p className="text-gray-600">No rides available yet</p>
-               <p className="text-sm text-gray-500">Check back later or offer a ride!</p>
-             </div>
-           ) : (
-             rides.map(ride => (
-               <div key={ride.id} className="bg-white rounded-lg p-4 mb-3 border">
-                 <div className="flex justify-between items-start mb-2">
-                   <div className="flex items-center space-x-2">
-                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                       <Users className="w-4 h-4 text-blue-600" />
-                     </div>
-                     <div>
-                       <div className="font-medium">{ride.driver_name}</div>
-                       <div className="flex items-center space-x-1 text-sm text-gray-600">
-                         <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                         <span>4.8</span>
-                         {ride.driver_verified && <Shield className="w-3 h-3 text-green-600" />}
-                       </div>
-                     </div>
-                   </div>
-                   <div className="text-right">
-                     <div className="text-xs text-gray-500">{ride.seats_available} seats</div>
-                   </div>
-                 </div>
-
-                 <div className="space-y-1 text-sm text-gray-600 mb-3">
-                   <div className="flex items-center space-x-2">
-                     <MapPin className="w-3 h-3" />
-                     <span>{ride.postcode} area → Maple Walk Prep</span>
-                   </div>
-                   <div className="flex items-center space-x-2">
-                     <Clock className="w-3 h-3" />
-                     <span>{ride.time} • {ride.trip_type}</span>
-                   </div>
-                   <div className="flex items-center space-x-2">
-                     <Calendar className="w-3 h-3" />
-                     <span>{ride.date}</span>
-                   </div>
-                 </div>
-
-                 <div className="text-xs text-blue-600 mb-3">
-                   {ride.year_groups} welcome
-                 </div>
-
-                 <div className="flex space-x-2">
-                   <button onClick={() => requestRide(ride.id)} className="bg-blue-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-700">
-                     Request Ride
-                   </button>
-                   <button onClick={() => setShowMessaging(true)} className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                     <MessageCircle className="w-4 h-4" />
-                   </button>
-                 </div>
-               </div>
-             ))
-           )}
-         </div>
-       )}
-
-       {activeTab === 'offer' && (
-         <div>
-           <div className="bg-white rounded-lg p-4 mb-4">
-             <h3 className="font-semibold mb-3">Offer a Ride</h3>
-             
-             <div className="space-y-3">
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Your Postcode</label>
-                 <input 
-                   type="text" 
-                   placeholder="e.g. NW10 4AB" 
-                   value={ridePostcode}
-                   onChange={(e) => setRidePostcode(e.target.value)}
-                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                 />
-               </div>
-               
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Trip Type</label>
-                   <select 
-                     value={tripType}
-                     onChange={(e) => setTripType(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                   >
-                     <option value="pickup">Pick up (to school)</option>
-                     <option value="dropoff">Drop off (from school)</option>
-                     <option value="both">Both ways</option>
-                   </select>
-                 </div>
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Travel Distance</label>
-                   <select 
-                     value={distance}
-                     onChange={(e) => setDistance(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                   >
-                     <option value="0.25">Within 0.25 miles</option>
-                     <option value="0.5">Within 0.5 miles</option>
-                     <option value="1">Within 1 mile</option>
-                     <option value="2">Within 2 miles</option>
-                     <option value="3">Within 3 miles</option>
-                     <option value="meet">Meet at my address</option>
-                   </select>
-                 </div>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                   <input 
-                     type="date" 
-                     value={date}
-                     onChange={(e) => setDate(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2" 
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                   <input 
-                     type="time" 
-                     value={time}
-                     onChange={(e) => setTime(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2" 
-                   />
-                 </div>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Seats Available</label>
-                   <select 
-                     value={seats}
-                     onChange={(e) => setSeats(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                   >
-                     <option value="1">1 seat</option>
-                     <option value="2">2 seats</option>
-                     <option value="3">3 seats</option>
-                   </select>
-                 </div>
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Year Groups</label>
-                   <select 
-                     value={yearGroups}
-                     onChange={(e) => setYearGroups(e.target.value)}
-                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                   >
-                     <option value="Reception">Reception only</option>
-                     <option value="Y1">Y1 only</option>
-                     <option value="Y2">Y2 only</option>
-                     <option value="Y3">Y3 only</option>
-                     <option value="Y4">Y4 only</option>
-                     <option value="Y5">Y5 only</option>
-                     <option value="Y6">Y6 only</option>
-                     <option value="Reception-Y2">Reception-Y2</option>
-                     <option value="Y3-Y6">Y3-Y6</option>
-                     <option value="Y1-Y4">Y1-Y4</option>
-                     <option value="Any">Any year group</option>
-                   </select>
-                 </div>
-               </div>
-               
-               <button 
-                 onClick={createRide}
-                 disabled={loading}
-                 className="w-full bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
-               >
-                 {loading ? 'Posting...' : 'Post Ride Offer'}
-               </button>
-             </div>
-           </div>
-
-           <div className="bg-blue-50 p-4 rounded-lg">
-             <h4 className="font-medium text-blue-900 mb-2">📸 Photo Sharing Settings</h4>
-             <div className="flex items-center justify-between">
-               <div>
-                 <p className="text-sm text-blue-800">Photo sharing with parents</p>
-                 <p className="text-xs text-blue-600">
-                   {user?.user_metadata?.photoConsent ? 'You have consented to photo sharing' : 'Photo sharing disabled'}
-                 </p>
-               </div>
-               <div className={`w-3 h-3 rounded-full ${user?.user_metadata?.photoConsent ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-             </div>
-           </div>
-         </div>
-       )}
-
-       {activeTab === 'my' && (
-         <div>
-           <div className="bg-white rounded-lg p-4 mb-4">
-             <h3 className="font-semibold mb-3">My Rides</h3>
-             
-             {myRides.length === 0 ? (
-               <div className="text-center py-8">
-                 <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                 <p className="text-gray-600">No rides yet</p>
-                 <p className="text-sm text-gray-500">Your posted rides will appear here</p>
-               </div>
-             ) : (
-               myRides.map(ride => (
-                 <div key={ride.id} className="border-l-4 border-green-500 bg-green-50 p-3 rounded-r-lg mb-3">
-                   <div className="flex justify-between items-start mb-2">
-                     <div>
-                       <div className="font-medium">Offering Ride</div>
-                       <div className="text-sm text-gray-600">{ride.postcode} → Maple Walk Prep</div>
-                     </div>
-                     <div className="text-xs text-gray-500">Active</div>
-                   </div>
-                   
-                   <div className="text-sm space-y-1">
-                     <div>{ride.time} • {ride.date}</div>
-                     <div className="text-gray-600">
-                       {ride.seats_available} seats • {ride.year_groups}
-                     </div>
-                   </div>
-                   
-                   <div className="flex space-x-2 mt-3">
-                     <button 
-                       onClick={() => alert('Feature coming soon! Ride requests will appear here.')}
-                       className="flex-1 bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700"
-                     >
-                       View Requests
-                     </button>
-                     <button 
-                       onClick={() => startActiveRide(ride)}
-                       className="bg-blue-500 text-white py-1 px-3 rounded text-sm hover:bg-blue-600"
-                     >
-                       🚗 Start Ride
-                     </button>
-                   </div>
-                 </div>
-               ))
-             )}
-           </div>
-
-           <div className="bg-white rounded-lg p-4">
-             <h4 className="font-medium mb-2">This Week</h4>
-             <div className="grid grid-cols-2 gap-4 text-center">
-               <div>
-                 <div className="text-2xl font-bold text-green-600">{myRides.length}</div>
-                 <div className="text-sm text-gray-600">Rides Offered</div>
-               </div>
-               <div>
-                 <div className="text-2xl font-bold text-blue-600">
-                   {user?.user_metadata?.children ? user.user_metadata.children.length : 0}
-                 </div>
-                 <div className="text-sm text-gray-600">Children Registered</div>
-               </div>
-             </div>
-           </div>
-         </div>
-       )}
-     </div>
-   </div>
- );
-};
-
-export default TandemApp;
-                <Car className="w-12 h-

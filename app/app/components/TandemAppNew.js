@@ -224,6 +224,7 @@ const TandemApp = () => {
   };
 
 const handleSignup = async () => {
+  alert('Signup function called!');
   console.log('🚨 SIGNUP BUTTON CLICKED - DEBUG VERSION ACTIVE!');
   setLoading(true);
   setError('');

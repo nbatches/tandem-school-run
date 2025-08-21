@@ -223,10 +223,11 @@ const TandemApp = () => {
     setNewMessage('');
   };
 
-  const handleLogin = async () => {
-    setLoading(true);
-    setError('');
-    console.log('🔑 Starting login process...');
+const handleSignup = async () => {
+  console.log('🚨 SIGNUP BUTTON CLICKED - DEBUG VERSION ACTIVE!');
+  setLoading(true);
+  setError('');
+  console.log('📝 Starting signup process...');
 
     try {
       // Sign in with Supabase Auth

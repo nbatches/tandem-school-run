@@ -1,4 +1,4 @@
-import './app/components/globals.css'
+import './app/globals.css'
 
 export const metadata = {
   title: 'Tandem - School Run Coordination',

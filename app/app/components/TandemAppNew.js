@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Car, Clock, MapPin, Users, Calendar, MessageCircle, Shield, LogOut, Send, X, Camera } from 'lucide-react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const TandemApp = () => {
   const [email, setEmail] = useState('');
@@ -31,23 +32,49 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
+  const supabase = createClientComponentClient();
+
   const yearGroupOptions = [
     'Reception', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'
   ];
 
   useEffect(() => {
-    const initializeApp = async () => {
-      if (typeof window !== 'undefined') {
-        const savedUser = JSON.parse(localStorage.getItem('tandem-user') || 'null');
-        const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
-        
-        if (savedUser) {
-          setUser(savedUser);
-          setRides(savedRides);
-          
-          const userRides = savedRides.filter(ride => ride.driver_id === savedUser.id);
-          setMyRides(userRides);
-          
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            user_metadata: {
+              name: profile.name,
+              postcode: profile.postcode,
+              children: profile.children,
+              photoConsent: profile.photo_consent,
+              school: profile.school
+            }
+          });
+
+          // Fetch rides
+          const { data: ridesData } = await supabase
+            .from('rides')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (ridesData) {
+            setRides(ridesData);
+            const userRides = ridesData.filter(ride => ride.driver_id === session.user.id);
+            setMyRides(userRides);
+          }
+
           setParentMessages([
             {
               id: 1,
@@ -64,14 +91,23 @@ const TandemApp = () => {
               type: 'system'
             }
           ]);
-        } else {
-          setRides(savedRides);
+        }
+      } else {
+        // Load any public rides even if not logged in
+        const { data: ridesData } = await supabase
+          .from('rides')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (ridesData) {
+          setRides(ridesData);
         }
       }
+      
       setLoading(false);
     };
 
-    initializeApp();
+    getSession();
   }, []);
 
   const sendSchoolNotification = async (userData) => {
@@ -187,58 +223,78 @@ const TandemApp = () => {
     setError('');
 
     try {
-      if (typeof window !== 'undefined') {
-        const allProfiles = JSON.parse(localStorage.getItem('tandem-profiles') || '{}');
-        let loginUser = allProfiles[email];
-        
-        if (!loginUser) {
-          loginUser = {
-            id: Date.now().toString(),
-            email: email,
-            user_metadata: {
-              name: email.split('@')[0],
-              postcode: 'NW10 4EB',
-              children: [{ name: 'Your child', yearGroup: 'Y1' }],
-              photoConsent: false,
-              school: 'Maple Walk Prep'
-            }
-          };
-          
-          allProfiles[email] = loginUser;
-          localStorage.setItem('tandem-profiles', JSON.stringify(allProfiles));
-        }
-        
-        localStorage.setItem('tandem-user', JSON.stringify(loginUser));
-        setUser(loginUser);
-        
-        const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
-        setRides(savedRides);
-        
-        const userRides = savedRides.filter(ride => ride.driver_id === loginUser.id);
-        setMyRides(userRides);
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
       }
-      
+
+      if (authData.user) {
+        // Fetch user profile from Supabase
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          setError('Login successful but could not fetch profile.');
+        } else {
+          setUser({
+            id: authData.user.id,
+            email: authData.user.email,
+            user_metadata: {
+              name: profile.name,
+              postcode: profile.postcode,
+              children: profile.children,
+              photoConsent: profile.photo_consent,
+              school: profile.school
+            }
+          });
+
+          // Fetch rides from Supabase
+          const { data: ridesData, error: ridesError } = await supabase
+            .from('rides')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!ridesError) {
+            setRides(ridesData || []);
+            const userRides = ridesData?.filter(ride => ride.driver_id === authData.user.id) || [];
+            setMyRides(userRides);
+          }
+
+          setParentMessages([
+            {
+              id: 1,
+              sender: 'Sarah (Emma\'s Mum)',
+              message: 'Thanks for organizing the school run today! 🙏',
+              timestamp: '8:10 AM',
+              type: 'received'
+            },
+            {
+              id: 2,
+              sender: 'Driver Updates',
+              message: 'Good morning! Starting the school run now 🚗',
+              timestamp: '8:12 AM',
+              type: 'system'
+            }
+          ]);
+
+          alert('Successfully logged in!');
+        }
+      }
+
       setEmail('');
       setPassword('');
-      
-      setParentMessages([
-        {
-          id: 1,
-          sender: 'Sarah (Emma\'s Mum)',
-          message: 'Thanks for organizing the school run today! 🙏',
-          timestamp: '8:10 AM',
-          type: 'received'
-        },
-        {
-          id: 2,
-          sender: 'Driver Updates',
-          message: 'Good morning! Starting the school run now 🚗',
-          timestamp: '8:12 AM',
-          type: 'system'
-        }
-      ]);
-      
-      alert('Successfully logged in!');
+
     } catch (error) {
       console.error('Login error:', error);
       setError('Login failed. Please try again.');
@@ -259,57 +315,58 @@ const TandemApp = () => {
         return;
       }
 
-      if (typeof window !== 'undefined') {
-        const allProfiles = JSON.parse(localStorage.getItem('tandem-profiles') || '{}');
-        
-        if (allProfiles[email]) {
-          setError('An account with this email already exists. Please sign in instead.');
-          setLoading(false);
-          return;
-        }
+      // Sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+      });
 
-        const newUser = {
-          id: Date.now().toString(),
-          email: email,
-          user_metadata: {
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (authData.user) {
+        // Create profile in Supabase
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: email,
             name: name,
             postcode: postcode,
             children: validChildren,
-            photoConsent: photoConsent,
-            school: 'Maple Walk Prep'
-          }
-        };
-        
-        allProfiles[email] = newUser;
-        localStorage.setItem('tandem-profiles', JSON.stringify(allProfiles));
-        
-        localStorage.setItem('tandem-user', JSON.stringify(newUser));
-        setUser(newUser);
-        
-        const savedRides = JSON.parse(localStorage.getItem('tandem-all-rides') || '[]');
-        setRides(savedRides);
-        
-        const emailSent = await sendSchoolNotification({
-          name: name,
-          email: email,
-          postcode: postcode,
-          children: validChildren,
-          photoConsent: photoConsent
-        });
-        
-        setEmail('');
-        setPassword('');
-        setName('');
-        setPostcode('');
-        setChildren([{ name: '', yearGroup: '' }]);
-        setPhotoConsent(false);
-        
-        if (emailSent) {
-          alert(`Account created for ${name}! The school has been notified for verification.`);
+            photo_consent: photoConsent,
+            school: 'Maple Walk Prep',
+            created_at: new Date().toISOString()
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          setError('Account created but profile setup failed. Please contact support.');
         } else {
-          alert(`Account created for ${name}! (Note: School notification failed - please contact the school directly)`);
+          // Send school notification
+          await sendSchoolNotification({
+            name: name,
+            email: email,
+            postcode: postcode,
+            children: validChildren,
+            photoConsent: photoConsent
+          });
+
+          alert(`Account created for ${name}! Please check your email to verify your account.`);
         }
       }
+
+      // Reset form
+      setEmail('');
+      setPassword('');
+      setName('');
+      setPostcode('');
+      setChildren([{ name: '', yearGroup: '' }]);
+      setPhotoConsent(false);
+
     } catch (error) {
       console.error('Signup error:', error);
       setError('Signup failed. Please try again.');
@@ -318,10 +375,8 @@ const TandemApp = () => {
     }
   };
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('tandem-user');
-    }
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setRides([]);
     setMyRides([]);
@@ -336,6 +391,8 @@ const TandemApp = () => {
     try {
       const rideData = {
         driver_id: user.id,
+        driver_name: user.user_metadata?.name || user.name || user.email,
+        driver_verified: true,
         postcode: ridePostcode,
         trip_type: tripType,
         distance: distance,
@@ -343,27 +400,28 @@ const TandemApp = () => {
         time: time,
         seats_available: parseInt(seats),
         year_groups: yearGroups,
-        school: 'Maple Walk Prep'
+        school: 'Maple Walk Prep',
+        created_at: new Date().toISOString()
       };
 
-      const newRide = {
-        id: Date.now().toString(),
-        driver_name: user.user_metadata?.name || user.name || user.email,
-        driver_verified: true,
-        ...rideData
-      };
-      
-      const updatedRides = [newRide, ...rides];
-      setRides(updatedRides);
-      setMyRides(prev => [newRide, ...prev]);
-      
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('tandem-all-rides', JSON.stringify(updatedRides));
+      const { data: newRide, error } = await supabase
+        .from('rides')
+        .insert(rideData)
+        .select()
+        .single();
+
+      if (error) {
+        setError('Failed to create ride. Please try again.');
+        console.error('Ride creation error:', error);
+      } else {
+        setRides(prev => [newRide, ...prev]);
+        setMyRides(prev => [newRide, ...prev]);
+        alert('Ride posted successfully!');
       }
       
-      alert('Ride posted successfully!');
     } catch (error) {
       setError('Failed to create ride. Please try again.');
+      console.error('Ride creation error:', error);
     }
     
     setRidePostcode('');

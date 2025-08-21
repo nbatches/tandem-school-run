@@ -113,7 +113,7 @@ const TandemApp = () => {
     };
 
     getSession();
-  }, []);
+  }, [supabase]);
 
   const sendSchoolNotification = async (userData) => {
     try {
@@ -315,6 +315,7 @@ const TandemApp = () => {
   };
 
   const handleSignup = async () => {
+    alert('🚨 SIGNUP BUTTON CLICKED - DEBUG VERSION ACTIVE!');
     setLoading(true);
     setError('');
     console.log('📝 Starting signup process...');
@@ -479,282 +480,7 @@ const TandemApp = () => {
 
   const ParentMessageFeed = () => (
     <div className="fixed inset-0 bg-white z-50 flex flex-col">
-      <div className="bg-white border-b flex">
-        <button onClick={() => setActiveTab('find')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'find' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
-          Find Rides
-        </button>
-        <button onClick={() => setActiveTab('offer')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'offer' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
-          Offer Rides
-        </button>
-        <button onClick={() => setActiveTab('my')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
-          My Rides
-        </button>
-      </div>
-
-      <div className="p-4">
-        <div className="bg-white rounded-lg p-3 mb-4 border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <MessageCircle className="w-5 h-5 text-green-600" />
-              <span className="font-medium">Parent Group Messages</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              {parentMessages.length > 0 && (
-                <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-full">
-                  {parentMessages.length} new
-                </span>
-              )}
-              <button onClick={() => setShowMessaging(true)} className="bg-green-600 text-white px-3 py-1 rounded text-sm">
-                View Messages
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {activeTab === 'find' && (
-          <div>
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2">Available Rides</h3>
-              <div className="text-sm text-gray-600">{rides.length} rides available</div>
-            </div>
-
-            {rides.length === 0 ? (
-              <div className="text-center py-8">
-                <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">No rides available yet</p>
-                <p className="text-sm text-gray-500">Check back later or offer a ride yourself</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {rides.map((ride) => (
-                  <div key={ride.id} className="bg-white rounded-lg p-4 border">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Car className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{ride.driver_name}</div>
-                          <div className="text-xs text-gray-500">
-                            {ride.driver_verified && <span className="text-green-600">✓ Verified</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        ride.trip_type === 'pickup' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {ride.trip_type === 'pickup' ? 'Pick Up' : 'Drop Off'}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-1 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{ride.postcode} • {ride.distance}km from school</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{ride.date} at {ride.time}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Users className="w-4 h-4" />
-                        <span>{ride.seats_available} seats • {ride.year_groups}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => requestRide(ride.id)}
-                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded font-medium hover:bg-blue-700"
-                      >
-                        Request Ride
-                      </button>
-                      <button 
-                        onClick={() => startActiveRide(ride)}
-                        className="bg-green-600 text-white py-2 px-4 rounded font-medium hover:bg-green-700"
-                      >
-                        Start
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'offer' && (
-          <div>
-            <h3 className="font-semibold mb-4">Offer a Ride</h3>
-            
-            <div className="bg-white rounded-lg p-4 border space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Your Postcode</label>
-                <input
-                  type="text"
-                  placeholder="e.g. NW10 4AB"
-                  value={ridePostcode}
-                  onChange={(e) => setRidePostcode(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Trip Type</label>
-                <select
-                  value={tripType}
-                  onChange={(e) => setTripType(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="pickup">Morning Pick Up</option>
-                  <option value="dropoff">Afternoon Drop Off</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Distance from School</label>
-                <select
-                  value={distance}
-                  onChange={(e) => setDistance(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="0.5">0.5km</option>
-                  <option value="1">1km</option>
-                  <option value="1.5">1.5km</option>
-                  <option value="2">2km</option>
-                  <option value="3">3km+</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Available Seats</label>
-                <select
-                  value={seats}
-                  onChange={(e) => setSeats(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="1">1 seat</option>
-                  <option value="2">2 seats</option>
-                  <option value="3">3 seats</option>
-                  <option value="4">4 seats</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year Groups</label>
-                <select
-                  value={yearGroups}
-                  onChange={(e) => setYearGroups(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="Reception">Reception only</option>
-                  <option value="Y1-Y2">Y1-Y2</option>
-                  <option value="Y1-Y3">Y1-Y3</option>
-                  <option value="Y3-Y4">Y3-Y4</option>
-                  <option value="Y4-Y6">Y4-Y6</option>
-                  <option value="All">All year groups</option>
-                </select>
-              </div>
-              
-              <button
-                onClick={createRide}
-                disabled={loading || !ridePostcode || !date}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Posting Ride...' : 'Post Ride'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'my' && (
-          <div>
-            <h3 className="font-semibold mb-4">My Rides</h3>
-            
-            {myRides.length === 0 ? (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600">No rides posted yet</p>
-                <p className="text-sm text-gray-500">Switch to "Offer Rides" to create your first ride</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {myRides.map((ride) => (
-                  <div key={ride.id} className="bg-white rounded-lg p-4 border">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                          <Car className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div>
-                          <div className="font-medium">Your Ride</div>
-                          <div className="text-xs text-green-600">✓ Active</div>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        ride.trip_type === 'pickup' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {ride.trip_type === 'pickup' ? 'Pick Up' : 'Drop Off'}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-1 text-sm text-gray-600 mb-3">
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{ride.postcode} • {ride.distance}km from school</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{ride.date} at {ride.time}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Users className="w-4 h-4" />
-                        <span>{ride.seats_available} seats • {ride.year_groups}</span>
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => startActiveRide(ride)}
-                      className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700"
-                    >
-                      Start This Ride
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default TandemApp;bg-green-600 text-white p-4 flex items-center justify-between">
+      <div className="bg-green-600 text-white p-4 flex items-center justify-between">
         <button onClick={() => setShowMessaging(false)} className="text-white hover:text-gray-200">
           <X className="w-6 h-6" />
         </button>
@@ -1054,4 +780,279 @@ export default TandemApp;bg-green-600 text-white p-4 flex items-center justify-b
         </div>
       </div>
 
-      <div className="
+      <div className="bg-white border-b flex">
+        <button onClick={() => setActiveTab('find')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'find' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
+          Find Rides
+        </button>
+        <button onClick={() => setActiveTab('offer')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'offer' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
+          Offer Rides
+        </button>
+        <button onClick={() => setActiveTab('my')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
+          My Rides
+        </button>
+      </div>
+
+      <div className="p-4">
+        <div className="bg-white rounded-lg p-3 mb-4 border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <MessageCircle className="w-5 h-5 text-green-600" />
+              <span className="font-medium">Parent Group Messages</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {parentMessages.length > 0 && (
+                <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-full">
+                  {parentMessages.length} new
+                </span>
+              )}
+              <button onClick={() => setShowMessaging(true)} className="bg-green-600 text-white px-3 py-1 rounded text-sm">
+                View Messages
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {activeTab === 'find' && (
+          <div>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Available Rides</h3>
+              <div className="text-sm text-gray-600">{rides.length} rides available</div>
+            </div>
+
+            {rides.length === 0 ? (
+              <div className="text-center py-8">
+                <Car className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No rides available yet</p>
+                <p className="text-sm text-gray-500">Check back later or offer a ride yourself</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rides.map((ride) => (
+                  <div key={ride.id} className="bg-white rounded-lg p-4 border">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Car className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium">{ride.driver_name}</div>
+                          <div className="text-xs text-gray-500">
+                            {ride.driver_verified && <span className="text-green-600">✓ Verified</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        ride.trip_type === 'pickup' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {ride.trip_type === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1 text-sm text-gray-600 mb-3">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4" />
+                        <span>{ride.postcode} • {ride.distance}km from school</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4" />
+                        <span>{ride.date} at {ride.time}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4" />
+                        <span>{ride.seats_available} seats • {ride.year_groups}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => requestRide(ride.id)}
+                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded font-medium hover:bg-blue-700"
+                      >
+                        Request Ride
+                      </button>
+                      <button 
+                        onClick={() => startActiveRide(ride)}
+                        className="bg-green-600 text-white py-2 px-4 rounded font-medium hover:bg-green-700"
+                      >
+                        Start
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'offer' && (
+          <div>
+            <h3 className="font-semibold mb-4">Offer a Ride</h3>
+            
+            <div className="bg-white rounded-lg p-4 border space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Your Postcode</label>
+                <input
+                  type="text"
+                  placeholder="e.g. NW10 4AB"
+                  value={ridePostcode}
+                  onChange={(e) => setRidePostcode(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trip Type</label>
+                <select
+                  value={tripType}
+                  onChange={(e) => setTripType(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="pickup">Morning Pick Up</option>
+                  <option value="dropoff">Afternoon Drop Off</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Distance from School</label>
+                <select
+                  value={distance}
+                  onChange={(e) => setDistance(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="0.5">0.5km</option>
+                  <option value="1">1km</option>
+                  <option value="1.5">1.5km</option>
+                  <option value="2">2km</option>
+                  <option value="3">3km+</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Available Seats</label>
+                <select
+                  value={seats}
+                  onChange={(e) => setSeats(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="1">1 seat</option>
+                  <option value="2">2 seats</option>
+                  <option value="3">3 seats</option>
+                  <option value="4">4 seats</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year Groups</label>
+                <select
+                  value={yearGroups}
+                  onChange={(e) => setYearGroups(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="Reception">Reception only</option>
+                  <option value="Y1-Y2">Y1-Y2</option>
+                  <option value="Y1-Y3">Y1-Y3</option>
+                  <option value="Y3-Y4">Y3-Y4</option>
+                  <option value="Y4-Y6">Y4-Y6</option>
+                  <option value="All">All year groups</option>
+                </select>
+              </div>
+              
+              <button
+                onClick={createRide}
+                disabled={loading || !ridePostcode || !date}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? 'Posting Ride...' : 'Post Ride'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'my' && (
+          <div>
+            <h3 className="font-semibold mb-4">My Rides</h3>
+            
+            {myRides.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No rides posted yet</p>
+                <p className="text-sm text-gray-500">Switch to "Offer Rides" to create your first ride</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myRides.map((ride) => (
+                  <div key={ride.id} className="bg-white rounded-lg p-4 border">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <Car className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium">Your Ride</div>
+                          <div className="text-xs text-green-600">✓ Active</div>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        ride.trip_type === 'pickup' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {ride.trip_type === 'pickup' ? 'Pick Up' : 'Drop Off'}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1 text-sm text-gray-600 mb-3">
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="w-4 h-4" />
+                        <span>{ride.postcode} • {ride.distance}km from school</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="w-4 h-4" />
+                        <span>{ride.date} at {ride.time}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4" />
+                        <span>{ride.seats_available} seats • {ride.year_groups}</span>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={() => startActiveRide(ride)}
+                      className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700"
+                    >
+                      Start This Ride
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TandemApp;

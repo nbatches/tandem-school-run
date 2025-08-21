@@ -1,5 +1,7 @@
-import TandemApp from './app/components/TandemAppNew'
+// app/page.js
 
-export default function Home() {
-  return <TandemApp />
+import TandemApp from "./components/TandemAppNew.jsx";
+
+export default function Page() {
+  return <TandemApp />;
 }

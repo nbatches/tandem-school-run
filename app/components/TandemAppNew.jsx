@@ -1,20 +1,22 @@
+// app/components/TandemAppNew.jsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Car, Clock, MapPin, Users, Calendar, MessageCircle, Shield, LogOut, Send, X } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
-// Debug: confirm Vercel env vars are present in the deployed build
+// Debug: verify env vars on Vercel
 console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
 console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Loaded ✅' : 'Missing ❌');
 
-// Create a single supabase client for the client component
+// One shared Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 const TandemApp = () => {
+  // Auth form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -22,10 +24,13 @@ const TandemApp = () => {
   const [children, setChildren] = useState([{ name: '', yearGroup: '' }]);
   const [photoConsent, setPhotoConsent] = useState(false);
   const [authMode, setAuthMode] = useState('signin');
+
+  // State
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // UI state
   const [activeTab, setActiveTab] = useState('find');
   const [rides, setRides] = useState([]);
   const [myRides, setMyRides] = useState([]);
@@ -34,6 +39,7 @@ const TandemApp = () => {
   const [showMessaging, setShowMessaging] = useState(false);
   const [newMessage, setNewMessage] = useState('');
 
+  // Offer form
   const [ridePostcode, setRidePostcode] = useState('');
   const [tripType, setTripType] = useState('pickup');
   const [distance, setDistance] = useState('0.5');
@@ -44,16 +50,14 @@ const TandemApp = () => {
 
   const yearGroupOptions = ['Reception', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'];
 
+  // Initial session + data
   useEffect(() => {
     const getSessionAndData = async () => {
       try {
         const { data: { user: currentUser }, error: sessionError } = await supabase.auth.getUser();
-        if (sessionError) {
-          console.warn('getUser warning:', sessionError.message);
-        }
+        if (sessionError) console.warn('getUser warning:', sessionError.message);
 
         if (currentUser) {
-          // Fetch profile
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -77,39 +81,32 @@ const TandemApp = () => {
               }
             });
           } else {
-            // Minimal user object if profile missing
             setUser({ id: currentUser.id, email: currentUser.email, user_metadata: {} });
           }
 
-          // Fetch rides
           const { data: ridesData, error: ridesError } = await supabase
             .from('rides')
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (ridesError) {
-            console.error('Rides fetch error:', ridesError);
-          } else if (ridesData) {
+          if (ridesError) console.error('Rides fetch error:', ridesError);
+          if (ridesData) {
             setRides(ridesData);
             setMyRides(ridesData.filter(r => r.driver_id === currentUser.id));
           }
 
-          // Seed messages
           setParentMessages([
             { id: 1, sender: "Sarah (Emma's Mum)", message: 'Thanks for organizing the school run today! 🙏', timestamp: '8:10 AM', type: 'received' },
             { id: 2, sender: 'Driver Updates', message: 'Good morning! Starting the school run now 🚗', timestamp: '8:12 AM', type: 'system' }
           ]);
         } else {
-          // Public rides if not logged in
           const { data: ridesData, error: ridesError } = await supabase
             .from('rides')
             .select('*')
             .order('created_at', { ascending: false });
-          if (ridesError) {
-            console.error('Public rides fetch error:', ridesError);
-          } else if (ridesData) {
-            setRides(ridesData);
-          }
+
+          if (ridesError) console.error('Public rides fetch error:', ridesError);
+          if (ridesData) setRides(ridesData);
         }
       } catch (err) {
         console.error('Init error:', err);
@@ -121,6 +118,7 @@ const TandemApp = () => {
     getSessionAndData();
   }, []);
 
+  // Helpers
   const sendSchoolNotification = async (userData) => {
     try {
       const childrenList = userData.children.map(c => `${c.name} (${c.yearGroup})`).join(', ');
@@ -195,6 +193,7 @@ const TandemApp = () => {
     setNewMessage('');
   };
 
+  // Auth
   const handleLogin = async () => {
     setLoading(true);
     setError('');
@@ -232,11 +231,10 @@ const TandemApp = () => {
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (ridesError) {
-            console.error('Rides fetch error:', ridesError);
-          } else {
-            setRides(ridesData || []);
-            setMyRides((ridesData || []).filter(r => r.driver_id === authData.user.id));
+          if (ridesError) console.error('Rides fetch error:', ridesError);
+          if (ridesData) {
+            setRides(ridesData);
+            setMyRides(ridesData.filter(r => r.driver_id === authData.user.id));
           }
 
           setParentMessages([
@@ -326,6 +324,7 @@ const TandemApp = () => {
     }
   };
 
+  // Rides
   const createRide = async () => {
     if (!user) return;
     setLoading(true);
@@ -378,6 +377,7 @@ const TandemApp = () => {
     alert('Ride request sent!');
   };
 
+  // UI components
   const ParentMessageFeed = () => (
     <div className="fixed inset-0 bg-white z-50 flex flex-col">
       <div className="bg-green-600 text-white p-4 flex items-center justify-between">
@@ -468,6 +468,7 @@ const TandemApp = () => {
     );
   };
 
+  // Screens
   if (loading) {
     return (
       <div className="max-w-md mx-auto bg-gray-50 min-h-screen flex items-center justify-center">
@@ -585,6 +586,7 @@ const TandemApp = () => {
     );
   }
 
+  // Logged-in screen
   return (
     <div className="max-w-md mx-auto bg-gray-50 min-h-screen">
       {showMessaging && <ParentMessageFeed />}
@@ -609,7 +611,7 @@ const TandemApp = () => {
             <MapPin className="w-4 h-4" />
             <span className="font-medium">Maple Walk Prep School Network</span>
           </div>
-          <div className="text-blue-2 00">Welcome {user?.user_metadata?.name || user?.name || user?.email}</div>
+          <div className="text-blue-200">Welcome {user?.user_metadata?.name || user?.name || user?.email}</div>
           {user?.user_metadata?.children && (
             <div className="text-blue-200 text-xs mt-1">
               Children: {user.user_metadata.children.map(c => `${c.name} (${c.yearGroup})`).join(', ')}
@@ -619,15 +621,9 @@ const TandemApp = () => {
       </div>
 
       <div className="bg-white border-b flex">
-        <button onClick={() => setActiveTab('find')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'find' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
-          Find Rides
-        </button>
-        <button onClick={() => setActiveTab('offer')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'offer' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
-          Offer Rides
-        </button>
-        <button onClick={() => setActiveTab('my')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
-          My Rides
-        </button>
+        <button onClick={() => setActiveTab('find')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'find' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Find Rides</button>
+        <button onClick={() => setActiveTab('offer')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'offer' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Offer Rides</button>
+        <button onClick={() => setActiveTab('my')} className={`flex-1 py-3 px-4 text-center font-medium ${activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>My Rides</button>
       </div>
 
       <div className="p-4">
@@ -639,9 +635,7 @@ const TandemApp = () => {
             </div>
             <div className="flex items-center space-x-2">
               {parentMessages.length > 0 && <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-full">{parentMessages.length} new</span>}
-              <button onClick={() => setShowMessaging(true)} className="bg-green-600 text-white px-3 py-1 rounded text-sm">
-                View Messages
-              </button>
+              <button onClick={() => setShowMessaging(true)} className="bg-green-600 text-white px-3 py-1 rounded text-sm">View Messages</button>
             </div>
           </div>
         </div>
@@ -725,7 +719,7 @@ const TandemApp = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Distance from School</label>
                 <select value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                  <option value="0.5">0.5km</</option>
+                  <option value="0.5">0.5km</option>
                   <option value="1">1km</option>
                   <option value="1.5">1.5km</option>
                   <option value="2">2km</option>

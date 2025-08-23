@@ -2,7 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { Car, Clock, MapPin, Users, Calendar, MessageCircle, Shield, LogOut, Send, X } from 'lucide-react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+// Debug: confirm Vercel env vars are present in the deployed build
+console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+console.log('Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Loaded ✅' : 'Missing ❌');
+
+// Create a single supabase client for the client component
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const TandemApp = () => {
   const [email, setEmail] = useState('');
@@ -32,61 +42,84 @@ const TandemApp = () => {
   const [seats, setSeats] = useState('1');
   const [yearGroups, setYearGroups] = useState('Y1-Y3');
 
-  const supabase = createClientComponentClient();
   const yearGroupOptions = ['Reception', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'];
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const getSessionAndData = async () => {
+      try {
+        const { data: { user: currentUser }, error: sessionError } = await supabase.auth.getUser();
+        if (sessionError) {
+          console.warn('getUser warning:', sessionError.message);
+        }
 
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        if (currentUser) {
+          // Fetch profile
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
 
-        if (profile) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            user_metadata: {
-              name: profile.name,
-              postcode: profile.postcode,
-              children: profile.children,
-              photoConsent: profile.photo_consent,
-              school: profile.school
-            }
-          });
+          if (profileError) {
+            console.error('Profile fetch error:', profileError);
+          }
 
-          const { data: ridesData } = await supabase
+          if (profile) {
+            setUser({
+              id: currentUser.id,
+              email: currentUser.email,
+              user_metadata: {
+                name: profile.name,
+                postcode: profile.postcode,
+                children: profile.children,
+                photoConsent: profile.photo_consent,
+                school: profile.school
+              }
+            });
+          } else {
+            // Minimal user object if profile missing
+            setUser({ id: currentUser.id, email: currentUser.email, user_metadata: {} });
+          }
+
+          // Fetch rides
+          const { data: ridesData, error: ridesError } = await supabase
             .from('rides')
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (ridesData) {
+          if (ridesError) {
+            console.error('Rides fetch error:', ridesError);
+          } else if (ridesData) {
             setRides(ridesData);
-            setMyRides(ridesData.filter(r => r.driver_id === session.user.id));
+            setMyRides(ridesData.filter(r => r.driver_id === currentUser.id));
           }
 
+          // Seed messages
           setParentMessages([
             { id: 1, sender: "Sarah (Emma's Mum)", message: 'Thanks for organizing the school run today! 🙏', timestamp: '8:10 AM', type: 'received' },
             { id: 2, sender: 'Driver Updates', message: 'Good morning! Starting the school run now 🚗', timestamp: '8:12 AM', type: 'system' }
           ]);
+        } else {
+          // Public rides if not logged in
+          const { data: ridesData, error: ridesError } = await supabase
+            .from('rides')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (ridesError) {
+            console.error('Public rides fetch error:', ridesError);
+          } else if (ridesData) {
+            setRides(ridesData);
+          }
         }
-      } else {
-        const { data: ridesData } = await supabase
-          .from('rides')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (ridesData) setRides(ridesData);
+      } catch (err) {
+        console.error('Init error:', err);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    getSession();
-  }, [supabase]);
+    getSessionAndData();
+  }, []);
 
   const sendSchoolNotification = async (userData) => {
     try {
@@ -105,7 +138,7 @@ const TandemApp = () => {
           </ul>
         `
       };
-      console.log('School notification email:', emailData);
+      console.log('School notification email (mock):', emailData);
       return true;
     } catch (err) {
       console.error('Failed to send school notification:', err);
@@ -169,7 +202,6 @@ const TandemApp = () => {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) {
         setError(authError.message);
-        setLoading(false);
         return;
       }
       if (authData.user) {
@@ -180,6 +212,7 @@ const TandemApp = () => {
           .single();
 
         if (profileError) {
+          console.error('Profile fetch error:', profileError);
           setError('Login successful but could not fetch profile.');
         } else {
           setUser({
@@ -199,7 +232,9 @@ const TandemApp = () => {
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (!ridesError) {
+          if (ridesError) {
+            console.error('Rides fetch error:', ridesError);
+          } else {
             setRides(ridesData || []);
             setMyRides((ridesData || []).filter(r => r.driver_id === authData.user.id));
           }
@@ -230,42 +265,42 @@ const TandemApp = () => {
       const validChildren = children.filter(c => c.name.trim() && c.yearGroup);
       if (validChildren.length === 0) {
         setError('Please add at least one child with name and year group.');
-        setLoading(false);
         return;
       }
 
+      // 1) Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
       if (authError) {
-        setError(authError.message);
-        setLoading(false);
+        console.error('Auth signup error:', authError);
+        setError(authError.message || 'Signup failed at auth.');
         return;
       }
 
+      // 2) Create profile row
       if (authData.user) {
         const profileData = {
           id: authData.user.id,
           email,
           name,
           postcode,
-          children: validChildren,
+          children: validChildren, // jsonb
           photo_consent: photoConsent,
           school: 'Maple Walk Prep',
           created_at: new Date().toISOString()
         };
 
-        const { data: profileResult, error: profileError } = await supabase
-          .from('profiles')
-          .insert(profileData)
-          .select();
-
+        const { error: profileError } = await supabase.from('profiles').insert(profileData);
         if (profileError) {
-          setError(`Account created but profile setup failed: ${profileError.message}`);
-        } else {
-          await sendSchoolNotification({ name, email, postcode, children: validChildren, photoConsent });
-          alert(`Account created for ${name}. Please check your email to verify your account.`);
+          console.error('Profile insert failed:', profileError);
+          setError(profileError.message || 'Database error saving new user.');
+          return;
         }
+
+        await sendSchoolNotification({ name, email, postcode, children: validChildren, photoConsent });
+        alert(`Account created for ${name}. Please check your email to verify your account if required.`);
       }
 
+      // Reset form
       setEmail('');
       setPassword('');
       setName('');
@@ -281,11 +316,14 @@ const TandemApp = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setRides([]);
-    setMyRides([]);
-    setParentMessages([]);
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setUser(null);
+      setRides([]);
+      setMyRides([]);
+      setParentMessages([]);
+    }
   };
 
   const createRide = async () => {
@@ -309,6 +347,7 @@ const TandemApp = () => {
 
       const { data: newRide, error } = await supabase.from('rides').insert(rideData).select().single();
       if (error) {
+        console.error('Ride creation error:', error);
         setError('Failed to create ride. Please try again.');
       } else {
         setRides(prev => [newRide, ...prev]);
@@ -316,18 +355,19 @@ const TandemApp = () => {
         alert('Ride posted successfully!');
       }
     } catch (err) {
-      setError('Failed to create ride. Please try again.');
       console.error('Ride creation error:', err);
+      setError('Failed to create ride. Please try again.');
+    } finally {
+      // Reset offer form
+      setRidePostcode('');
+      setTripType('pickup');
+      setDistance('0.5');
+      setDate('');
+      setTime('08:15');
+      setSeats('1');
+      setYearGroups('Y1-Y3');
+      setLoading(false);
     }
-
-    setRidePostcode('');
-    setTripType('pickup');
-    setDistance('0.5');
-    setDate('');
-    setTime('08:15');
-    setSeats('1');
-    setYearGroups('Y1-Y3');
-    setLoading(false);
   };
 
   const requestRide = async (rideId) => {
@@ -569,7 +609,7 @@ const TandemApp = () => {
             <MapPin className="w-4 h-4" />
             <span className="font-medium">Maple Walk Prep School Network</span>
           </div>
-          <div className="text-blue-200">Welcome {user?.user_metadata?.name || user?.name || user?.email}</div>
+          <div className="text-blue-2 00">Welcome {user?.user_metadata?.name || user?.name || user?.email}</div>
           {user?.user_metadata?.children && (
             <div className="text-blue-200 text-xs mt-1">
               Children: {user.user_metadata.children.map(c => `${c.name} (${c.yearGroup})`).join(', ')}
@@ -685,7 +725,7 @@ const TandemApp = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Distance from School</label>
                 <select value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
-                  <option value="0.5">0.5km</option>
+                  <option value="0.5">0.5km</</option>
                   <option value="1">1km</option>
                   <option value="1.5">1.5km</option>
                   <option value="2">2km</option>

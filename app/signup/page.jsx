@@ -10,13 +10,9 @@ async function ensureProfile(user, additionalData = {}) {
         id: user.id,                               // must match auth.users.id
         email: user.email,
         name: additionalData.name || user.user_metadata?.full_name || null,
-        children: additionalData.children || null,
-        school: additionalData.school || null,
-        photo_consent: additionalData.photo_consent || false,
-        notifications_enabled: true,               // default to enabled
-        is_verified: false,                        // default to not verified
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        postcode: additionalData.postcode || null, // This field exists in your DB
+        // Remove fields that don't exist: children, school, photo_consent
+        // created_at and updated_at should be auto-handled by your DB
       },
       { onConflict: "id" }                         // use PK
     );
@@ -31,9 +27,7 @@ export default function SignupPage() {
     name: "",
     email: "",
     password: "",
-    children: "",
-    school: "",
-    photoConsent: false
+    postcode: ""  // Only using fields that exist in your DB
   });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -44,7 +38,10 @@ export default function SignupPage() {
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user && event === 'SIGNED_IN') {
         try {
-          await ensureProfile(session.user);
+          await ensureProfile(session.user, {
+            name: formData.name,
+            postcode: formData.postcode
+          });
           setMsg("Account created successfully! Redirecting...");
           // Redirect to dashboard or main app
           // window.location.href = "/dashboard";
@@ -55,13 +52,13 @@ export default function SignupPage() {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [formData.name, formData.postcode]);
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }));
   };
 
@@ -75,6 +72,10 @@ export default function SignupPage() {
       // Basic validation
       if (formData.password.length < 6) {
         throw new Error("Password must be at least 6 characters long");
+      }
+
+      if (!formData.postcode.trim()) {
+        throw new Error("Postcode is required");
       }
 
       console.log("Starting signup for:", formData.email);
@@ -105,9 +106,7 @@ export default function SignupPage() {
         console.log("User immediately confirmed, creating profile");
         await ensureProfile(authData.user, {
           name: formData.name,
-          children: formData.children,
-          school: formData.school,
-          photo_consent: formData.photoConsent
+          postcode: formData.postcode
         });
         setMsg("Account created successfully!");
       } else {
@@ -126,12 +125,29 @@ export default function SignupPage() {
   return (
     <main className="max-w-md mx-auto p-4">
       <h1 className="text-xl font-semibold mb-4">Create your Tandem account</h1>
+      
+      {/* Debug info */}
+      <div className="mb-4 p-2 bg-gray-100 rounded text-sm">
+        <p>Supabase URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? "✓ Set" : "✗ Missing"}</p>
+        <p>Supabase Key: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "✓ Set" : "✗ Missing"}</p>
+      </div>
+      
       <form onSubmit={handleSignup} className="flex flex-col gap-3">
         <input
           type="text"
           name="name"
           placeholder="Your full name"
           value={formData.name}
+          onChange={handleInputChange}
+          className="border p-2 rounded"
+          required
+        />
+        
+        <input
+          type="text"
+          name="postcode"
+          placeholder="Postcode (required)"
+          value={formData.postcode}
           onChange={handleInputChange}
           className="border p-2 rounded"
           required
@@ -157,34 +173,6 @@ export default function SignupPage() {
           minLength={6}
           required
         />
-        
-        <input
-          type="text"
-          name="children"
-          placeholder="Children's names (e.g., Jacob, Emma)"
-          value={formData.children}
-          onChange={handleInputChange}
-          className="border p-2 rounded"
-        />
-        
-        <input
-          type="text"
-          name="school"
-          placeholder="School name"
-          value={formData.school}
-          onChange={handleInputChange}
-          className="border p-2 rounded"
-        />
-        
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="photoConsent"
-            checked={formData.photoConsent}
-            onChange={handleInputChange}
-          />
-          I consent to photos of my child(ren) being shared through this app
-        </label>
         
         <button 
           type="submit" 
